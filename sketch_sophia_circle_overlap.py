@@ -3,6 +3,7 @@ from shapely.geometry import Point, LineString, GeometryCollection
 import shapely as shapely
 
 
+
 class SophiaCircleOverlapSketch(vsketch.SketchClass):
     # Sketch parameters:
     debug = vsketch.Param(False)
@@ -15,13 +16,17 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     max_circles = vsketch.Param(10, decimals=0, min_value=1)
     min_radius = vsketch.Param(2, decimals=0, unit="mm")
     max_radius = vsketch.Param(20, decimals=0, unit="mm")
-
+    kind = vsketch.Param("line", choices=["line", "region"])
     def random_point(self, vsk: vsketch.Vsketch):
         return Point(vsk.random(0, self.width), vsk.random(0, self.height))
+
+    def random_circle(self, vsk: vsketch.Vsketch, radius):
+        return Point(vsk.random(radius, self.width-radius), vsk.random(radius, self.height-radius)).buffer(radius)
 
     def path(self):
         return LineString([(0, self.height / 2),
                            (self.width, self.height / 2)])
+
 
     def draw(self, vsk: vsketch.Vsketch) -> None:
         vsk.size(f"{self.height}x{self.width}", landscape=True, center=False)
@@ -41,8 +46,15 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
             # todo maybe force to be a whole number of millimeters
             radius = vsk.random(self.min_radius, self.max_radius)
 
-            position = path.interpolate(vsk.random(1), normalized=True)
-            shape = position.buffer(radius)
+
+            match self.kind:
+                    case "line":
+                        shape = path.interpolate(vsk.random(radius,path.length-radius)).buffer(radius)
+                    case "region":
+                        shape = self.random_circle(vsk, radius)
+                    case _:
+
+                        shape = self.random_circle(vsk, radius)
             circles.append(shape)
 
         geom = GeometryCollection([])
