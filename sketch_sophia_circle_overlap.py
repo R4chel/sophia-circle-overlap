@@ -10,7 +10,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     margin = vsketch.Param(0.1, decimals=3, unit="in")
     pen_width = vsketch.Param(0.7, decimals=3, min_value=1e-10, unit="mm")
     num_layers = vsketch.Param(1)
-    min_circles = vsketch.Param(1, decimals=0, min_value=1)
+    min_circles = vsketch.Param(5, decimals=0, min_value=1)
     max_circles = vsketch.Param(10, decimals=0, min_value=1)
     min_radius = vsketch.Param(2, decimals=0, unit="mm")
     max_radius = vsketch.Param(20, decimals=0, unit="mm")
@@ -33,18 +33,22 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
         if self.debug:
             vsk.geometry(path)
 
+        circles = []
         layers = [1 + i for i in range(self.num_layers)]
         num_circles = int(vsk.random(self.min_circles, self.max_circles))
         for i in range(num_circles):
             # todo maybe force to be a whole number of millimeters
             radius = vsk.random(self.min_radius, self.max_radius)
 
-            position = path.interpolate(vsk.random(1), normalized=True)
+            #todo make relative positons more random
+
+            position = path.interpolate((i + 1) / (num_circles + 1),
+                                        normalized=True)
             shape = position.buffer(radius)
-            layer = layers[int(vsk.random(0, len(layers)))]
-            vsk.stroke(layer)
-            vsk.fill(layer)
-            vsk.geometry(shape)
+            circles.append(shape)
+
+        for circle in circles:
+            vsk.geometry(circle)
 
     def finalize(self, vsk: vsketch.Vsketch) -> None:
         vsk.vpype("linemerge linesimplify reloop linesort")
