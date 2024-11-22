@@ -41,23 +41,13 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
             # todo maybe force to be a whole number of millimeters
             radius = vsk.random(self.min_radius, self.max_radius)
 
-            #todo make relative positons more random
-
-            position = path.interpolate((i + 1) / (num_circles + 1),
-                                        normalized=True)
+            position = path.interpolate(vsk.random(1), normalized=True)
             shape = position.buffer(radius)
             circles.append(shape)
 
         geom = GeometryCollection([])
         for circle in circles:
             geom = geom.symmetric_difference(circle)
-            # if circle.disjoint(geom):
-            #     geom = geom.union(circle)
-            #     vsk.fill(1)
-            #     vsk.geometry(circle)
-            # else:
-            #     vsk.fill(2)
-            #     vsk.geometry(circle)
 
         # vsk.noFill()
         vsk.fill(2)
