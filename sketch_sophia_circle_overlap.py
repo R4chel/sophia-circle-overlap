@@ -1,5 +1,5 @@
 import vsketch
-from shapely.geometry import Point, LineString, GeometryCollection
+from shapely.geometry import Point, LineString, GeometryCollection, MultiPolygon
 import shapely as shapely
 
 
@@ -58,12 +58,19 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
             circles.append(shape)
 
         geom = GeometryCollection([])
+    
         for circle in circles:
             geom = geom.symmetric_difference(circle)
 
-        # vsk.noFill()
-        vsk.fill(2)
-        vsk.geometry(geom)
+        if self.num_layers <= 2:
+            vsk.fill(2)
+            vsk.geometry(geom)
+
+        else:
+            parts = geom.geoms
+            for i, part in enumerate(parts):
+                vsk.fill(i + 1 )
+                vsk.geometry(part)
 
     def finalize(self, vsk: vsketch.Vsketch) -> None:
         vsk.vpype("linemerge linesimplify reloop linesort")
