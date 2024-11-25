@@ -7,6 +7,7 @@ import shapely.ops as ops
 class SophiaCircleOverlapSketch(vsketch.SketchClass):
     # Sketch parameters:
     debug = vsketch.Param(False)
+    simple = vsketch.Param(False)
     width = vsketch.Param(5., decimals=2, unit="in")
     height = vsketch.Param(3., decimals=2, unit="in")
     margin = vsketch.Param(0.1, decimals=3, unit="in")
@@ -40,7 +41,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
             vsk.geometry(path)
 
         circles = []
-        # layers = [1 + i for i in range(self.num_layers)]
+        layers = [1 + i for i in range(self.num_layers)]
         num_circles = int(vsk.random(self.min_circles, self.max_circles))
         for i in range(num_circles):
             # todo maybe force to be a whole number of millimeters
@@ -58,28 +59,41 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
             circles.append(shape)
 
         geom = GeometryCollection([])
-        universe = ops.unary_union(circles)
-        bounds = GeometryCollection([c.boundary for c in circles])
         for circle in circles:
             geom = geom.symmetric_difference(circle)
 
-        other_regions = universe.symmetric_difference(geom)
+        if self.simple:
+            for shape in geom.geoms:
+                layer = layers[int(vsk.random(0, 1) * len(layers))]
+                vsk.stroke(layer)
+                vsk.fill(layer)
+                vsk.geometry(shape)
+
+        else:
 
 
-        fill = 1
 
-        parts = geom.geoms 
-        vsk.stroke(1)
-        for part in parts:
-            vsk.fill(fill)
-            fill += 1
-            vsk.geometry(part)
+            universe = ops.unary_union(circles)
+            bounds = GeometryCollection([c.boundary for c in circles])
+            other_regions = universe.symmetric_difference(geom)
 
-        vsk.stroke(2)
-        for part in other_regions.geoms:
-            vsk.fill(fill)
-            fill += 1
-            vsk.geometry(part)
+            all_regions = GeometryCollection([geom,other_regions]).geoms
+
+
+
+            fill = 1
+            parts = geom.geoms 
+            vsk.stroke(1)
+            for part in parts:
+                vsk.fill(fill)
+                fill += 1
+                vsk.geometry(part)
+
+            vsk.stroke(2)
+            for part in other_regions.geoms:
+                vsk.fill(fill)
+                fill += 1
+                vsk.geometry(part)
 
         
 
