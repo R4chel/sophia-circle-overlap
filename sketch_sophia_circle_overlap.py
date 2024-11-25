@@ -97,13 +97,13 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
             other_regions = universe.symmetric_difference(geom)
             fill = 3
             shape = geom.geoms[0]
-            vsk.stroke(42)
-            vsk.fill(42)
-            vsk.geometry(shape)
             for region in geom.geoms:
-                if shape.touches(region):
+                if shape.almost_equals(region):
                     vsk.stroke(1)
                     vsk.fill(1)
+                elif shape.touches(region):
+                    vsk.stroke(2)
+                    vsk.fill(2)
                 else:
                     vsk.stroke(fill)
                     vsk.noFill()
@@ -113,8 +113,8 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
 
             for region in other_regions.geoms:
                 if shape.touches(region):
-                    vsk.stroke(2)
-                    vsk.fill(2)
+                    vsk.stroke(3)
+                    vsk.fill(3)
                 else:
                     vsk.noFill()
                     vsk.stroke(fill)
