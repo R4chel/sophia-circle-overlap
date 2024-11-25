@@ -1,8 +1,30 @@
 import vsketch
-from shapely.geometry import Point, LineString, GeometryCollection, MultiPolygon
+from shapely.geometry import Point, LineString, GeometryCollection, MultiPolygon, Polygon
 import shapely as shapely
 import shapely.ops as ops 
 
+class Region:
+    def __init__(self, geom:Polygon):
+        self.geom = geom
+        self.layer = None
+
+    def touches(self, other):
+        return self.geom.touches(other.geom)
+
+    def set_layer(self, n):
+        self.layer = n
+
+    def draw(self, vsk: vsketch.Vsketch):
+        if self.layer is not None:
+            vsk.stroke(self.layer)
+            vsk.fill(self.layer)
+        else:
+            vsk.stroke(42)
+            vsk.fill(42)
+        vsk.geometry(self.geom)
+
+    def __str__(self):
+        return f"{self.layer}"
 
 class SophiaCircleOverlapSketch(vsketch.SketchClass):
     # Sketch parameters:
@@ -71,31 +93,33 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
 
         else:
 
-
-
             universe = ops.unary_union(circles)
-            bounds = GeometryCollection([c.boundary for c in circles])
             other_regions = universe.symmetric_difference(geom)
-
-            all_regions = GeometryCollection([geom,other_regions]).geoms
-
-
-
-            fill = 1
-            parts = geom.geoms 
-            vsk.stroke(1)
-            for part in parts:
-                vsk.fill(fill)
+            fill = 3
+            shape = geom.geoms[0]
+            vsk.stroke(42)
+            vsk.fill(42)
+            vsk.geometry(shape)
+            for region in geom.geoms:
+                if shape.touches(region):
+                    vsk.stroke(1)
+                    vsk.fill(1)
+                else:
+                    vsk.stroke(fill)
+                    vsk.noFill()
                 fill += 1
-                vsk.geometry(part)
+                vsk.geometry(region)
 
-            vsk.stroke(2)
-            for part in other_regions.geoms:
-                vsk.fill(fill)
+
+            for region in other_regions.geoms:
+                if shape.touches(region):
+                    vsk.stroke(2)
+                    vsk.fill(2)
+                else:
+                    vsk.noFill()
+                    vsk.stroke(fill)
                 fill += 1
-                vsk.geometry(part)
-
-        
+                vsk.geometry(region)
 
         
     def finalize(self, vsk: vsketch.Vsketch) -> None:
