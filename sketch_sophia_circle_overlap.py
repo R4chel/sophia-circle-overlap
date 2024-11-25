@@ -4,9 +4,11 @@ import shapely as shapely
 import shapely.ops as ops 
 
 class Region:
-    def __init__(self, geom:Polygon):
+    def __init__(self, geom:Polygon, primary):
         self.geom = geom
         self.layer = None
+        self.primary = primary
+        self.neighbors = []
 
     def touches(self, other):
         return self.geom.touches(other.geom)
@@ -14,14 +16,6 @@ class Region:
     def set_layer(self, n):
         self.layer = n
 
-    def draw(self, vsk: vsketch.Vsketch):
-        if self.layer is not None:
-            vsk.stroke(self.layer)
-            vsk.fill(self.layer)
-        else:
-            vsk.stroke(42)
-            vsk.fill(42)
-        vsk.geometry(self.geom)
 
     def __str__(self):
         return f"{self.layer}"
@@ -30,12 +24,14 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     # Sketch parameters:
     debug = vsketch.Param(False)
     simple = vsketch.Param(False)
+    fixed_stroke = vsketch.Param(True)
+    max_attempts = vsketch.Param(20)
     width = vsketch.Param(5., decimals=2, unit="in")
     height = vsketch.Param(3., decimals=2, unit="in")
     margin = vsketch.Param(0.1, decimals=3, unit="in")
     pen_width = vsketch.Param(0.7, decimals=3, min_value=1e-10, unit="mm")
     num_layers = vsketch.Param(1)
-    min_circles = vsketch.Param(5, decimals=0, min_value=1)
+    min_circles = vsketch.Param(5, decimals=0, min_value=2)
     max_circles = vsketch.Param(10, decimals=0, min_value=1)
     min_radius = vsketch.Param(2, decimals=0, unit="mm")
     max_radius = vsketch.Param(20, decimals=0, unit="mm")
@@ -63,7 +59,8 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
             vsk.geometry(path)
 
         circles = []
-        layers = [1 + i for i in range(self.num_layers)]
+        layer_offset = 2 if self.fixed_stroke else 1
+        layers = [layer_offset + i for i in range(self.num_layers)]
         num_circles = int(vsk.random(self.min_circles, self.max_circles))
         for i in range(num_circles):
             # todo maybe force to be a whole number of millimeters
@@ -84,7 +81,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
         for circle in circles:
             geom = geom.symmetric_difference(circle)
 
-        if self.simple:
+        if self.simple < self.num_layers < 2:
             for shape in geom.geoms:
                 layer = layers[int(vsk.random(0, 1) * len(layers))]
                 vsk.stroke(layer)
@@ -95,32 +92,54 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
 
             universe = ops.unary_union(circles)
             other_regions = universe.symmetric_difference(geom)
+            
             fill = 3
-            shape = geom.geoms[0]
-            for region in geom.geoms:
-                if shape.almost_equals(region):
+            r1 =  [ Region(region, True) for region in geom.geoms ]
+            r2 = [] if other_regions.is_empty else [Region(region, False) for region in other_regions.geoms]
+            regions = r1 + r2
+            for i in range(len(regions)):
+                current = regions[i]
+                for j in range(i+1, len(regions)):
+                    other = regions[j]
+                    if current.primary is not other.primary and current.touches(other):
+                        regions[j].neighbors.append(i)
+                        regions[i].neighbors.append(j)
+
+            
+            to_check = [ i for i in range(len(regions))]
+            attempts_left = self.max_attempts
+            while len(to_check) > 0 and attempts_left >= 0 :
+                current_index = to_check.pop()
+                current = regions[current_index]
+                if current.layer is not None:
+                    continue
+                
+                neighbor_layers = { regions[neighbor].layer for neighbor in current.neighbors if regions[neighbor].layer is not None }
+                possible_layers = [layer for layer in layers if layer not in neighbor_layers]
+                if len(possible_layers) > 0:
+                    # todo weight layers
+                    current.layer = possible_layers[int(vsk.random(0, 1) * len(possible_layers))]
+                else:
+                    random_layer = layers[int(vsk.random(0, 1) * len(layers))]
+                    current.layer = random_layer
+                    for neighbor in current.neighbors:
+                        if regions[neighbor].layer == random_layer:
+                            regions[neighbor].layer = None
+                        
+                    attempts_left -= 1
+
+                to_check.extend([neighbor for neighbor in current.neighbors if regions[neighbor].layer is None])
+
+            vsk.stroke(1)
+            for region in regions:
+                if region.layer is not None:
+                    vsk.fill(region.layer)
+                    if not self.fixed_stroke:
+                        vsk.stroke(region.layer)
+                else:
                     vsk.stroke(1)
-                    vsk.fill(1)
-                elif shape.touches(region):
-                    vsk.stroke(2)
-                    vsk.fill(2)
-                else:
-                    vsk.stroke(fill)
                     vsk.noFill()
-                fill += 1
-                vsk.geometry(region)
-
-
-            for region in other_regions.geoms:
-                if shape.touches(region):
-                    vsk.stroke(3)
-                    vsk.fill(3)
-                else:
-                    vsk.noFill()
-                    vsk.stroke(fill)
-                fill += 1
-                vsk.geometry(region)
-
+                vsk.geometry(region.geom)
         
     def finalize(self, vsk: vsketch.Vsketch) -> None:
         vsk.vpype("linemerge linesimplify reloop linesort")
