@@ -94,9 +94,13 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
             other_regions = universe.symmetric_difference(geom)
             
             fill = 3
-            r1 =  [ Region(region, True) for region in geom.geoms ]
-            r2 = [] if other_regions.is_empty else [Region(region, False) for region in other_regions.geoms]
-            regions = r1 + r2
+            regions = [ Region(region, True) for region in geom.geoms ]
+            if not other_regions.is_empty:
+                if other_regions.geom_type in ['Point', 'Line', 'Polygon']:
+                    regions.append(Region(other_regions, False))
+                else:
+                    regions = regions + [Region(region, False) for region in other_regions.geoms]
+
             for i in range(len(regions)):
                 current = regions[i]
                 for j in range(i+1, len(regions)):
@@ -120,12 +124,14 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
                     # todo weight layers
                     current.layer = possible_layers[int(vsk.random(0, 1) * len(possible_layers))]
                 else:
+                    print(f"no good choices: {current}")
                     random_layer = layers[int(vsk.random(0, 1) * len(layers))]
                     current.layer = random_layer
                     for neighbor in current.neighbors:
                         if regions[neighbor].layer == random_layer:
                             regions[neighbor].layer = None
                         
+                    
                     attempts_left -= 1
 
                 to_check.extend([neighbor for neighbor in current.neighbors if regions[neighbor].layer is None])
