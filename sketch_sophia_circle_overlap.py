@@ -56,7 +56,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
 
 
     def draw(self, vsk: vsketch.Vsketch) -> None:
-        vsk.size(f"{self.height}x{self.width}", landscape=True, center=False)
+        vsk.size(f"{self.height}x{self.width}", landscape=True, center=True)
         self.width = self.width - 2 * self.margin
         self.height = self.height - 2 * self.margin
         vsk.translate(self.margin, self.margin)
