@@ -69,9 +69,6 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
         circles = []
         layer_offset = 2 if self.fixed_stroke else 1
         layers = [layer_offset + i for i in range(self.num_layers)]
-        for layer in layers:
-            # what randomness would be better for favoring higher variation?
-            vsk.penWidth(vsk.random(self.min_pen_width, self.max_pen_width), layer)
 
         num_circles = int(vsk.random(self.min_circles, self.max_circles))
 
@@ -94,6 +91,11 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
         geom = GeometryCollection([])
         for circle in circles:
             geom = geom.symmetric_difference(circle)
+
+        for layer in layers:
+            # what randomness would be better for favoring higher variation?
+
+            vsk.penWidth(vsk.random(self.min_pen_width, self.max_pen_width), layer)
 
         if self.simple < self.num_layers < 2:
             for shape in geom.geoms:
