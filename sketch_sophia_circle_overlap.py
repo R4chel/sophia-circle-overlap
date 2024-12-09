@@ -29,7 +29,8 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     width = vsketch.Param(5., decimals=2, unit="in")
     height = vsketch.Param(3., decimals=2, unit="in")
     margin = vsketch.Param(0.1, decimals=3, unit="in")
-    pen_width = vsketch.Param(0.7, decimals=3, min_value=1e-10, unit="mm")
+    min_pen_width = vsketch.Param(0.7, decimals=3, min_value=1e-10, unit="mm")
+    max_pen_width = vsketch.Param(0.7, decimals=3, min_value=1e-10, unit="mm")
     num_layers = vsketch.Param(1)
     min_circles = vsketch.Param(5, decimals=0, min_value=2)
     max_circles = vsketch.Param(10, decimals=0, min_value=1)
@@ -59,7 +60,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
         self.width = self.width - 2 * self.margin
         self.height = self.height - 2 * self.margin
         vsk.translate(self.margin, self.margin)
-        vsk.penWidth(f"{self.pen_width}")
+
 
         path = self.path(vsk)
         if self.debug:
@@ -68,6 +69,10 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
         circles = []
         layer_offset = 2 if self.fixed_stroke else 1
         layers = [layer_offset + i for i in range(self.num_layers)]
+        for layer in layers:
+            # what randomness would be better for favoring higher variation?
+            vsk.penWidth(vsk.random(self.min_pen_width, self.max_pen_width), layer)
+
         num_circles = int(vsk.random(self.min_circles, self.max_circles))
 
         radii = [vsk.random(self.min_radius, self.max_radius) for i in range(num_circles)]
