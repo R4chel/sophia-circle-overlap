@@ -35,16 +35,23 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     max_circles = vsketch.Param(10, decimals=0, min_value=1)
     min_radius = vsketch.Param(2, decimals=0, unit="mm")
     max_radius = vsketch.Param(20, decimals=0, unit="mm")
-    kind = vsketch.Param("line", choices=["line", "region"])
+    evenly_spaced = vsketch.Param(False)
+    kind = vsketch.Param("line", choices=["line", "region", "bug-circle", "circle"])
     def random_point(self, vsk: vsketch.Vsketch):
         return Point(vsk.random(0, self.width), vsk.random(0, self.height))
 
     def random_circle(self, vsk: vsketch.Vsketch, radius):
         return Point(vsk.random(radius, self.width-radius), vsk.random(radius, self.height-radius)).buffer(radius)
 
-    def path(self):
-        return LineString([(0, self.height / 2),
-                           (self.width, self.height / 2)])
+    def path(self, vsk: vsketch.Vsketch):
+        match self.kind:
+             case "bug-circle":
+                  return Point(self.width/2,self.height/2).buffer(min(self.width,self.height)/2-self.margin-self.max_radius).boundary
+             case "circle":
+                  return Point(self.width/2, self.height/2).buffer(vsk.random(0.25,0.5)*min(self.width,self.height)).boundary
+             case _:
+                return LineString([(0, self.height / 2),
+                                (self.width, self.height / 2)])
 
 
     def draw(self, vsk: vsketch.Vsketch) -> None:
@@ -54,7 +61,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
         vsk.translate(self.margin, self.margin)
         vsk.penWidth(f"{self.pen_width}")
 
-        path = self.path()
+        path = self.path(vsk)
         if self.debug:
             vsk.geometry(path)
 
@@ -62,19 +69,21 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
         layer_offset = 2 if self.fixed_stroke else 1
         layers = [layer_offset + i for i in range(self.num_layers)]
         num_circles = int(vsk.random(self.min_circles, self.max_circles))
-        for i in range(num_circles):
+
+        radii = [vsk.random(self.min_radius, self.max_radius) for i in range(num_circles)]
+        actual_max_radius = max(radii)
+        for i, radius in enumerate(radii):
             # todo maybe force to be a whole number of millimeters
-            radius = vsk.random(self.min_radius, self.max_radius)
-
-
+            interp = path.length*(i+1)/(num_circles+1) if self.evenly_spaced else vsk.random(radius,path.length-radius)
+        
             match self.kind:
-                    case "line":
-                        shape = path.interpolate(vsk.random(radius,path.length-radius)).buffer(radius)
                     case "region":
                         shape = self.random_circle(vsk, radius)
+                    case "line":
+                        shape = path.interpolate(interp).buffer(radius)
                     case _:
+                        shape = path.interpolate(interp).buffer(radius)
 
-                        shape = self.random_circle(vsk, radius)
             circles.append(shape)
 
         geom = GeometryCollection([])
