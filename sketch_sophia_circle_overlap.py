@@ -37,7 +37,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     min_radius = vsketch.Param(2, decimals=0, unit="mm")
     max_radius = vsketch.Param(20, decimals=0, unit="mm")
     evenly_spaced = vsketch.Param(False)
-    kind = vsketch.Param("line", choices=["line", "region", "bug-circle", "circle", "walker"])
+    kind = vsketch.Param("line", choices=["line", "region", "bug-circle", "circle", "walker","circle-walker"])
     def random_point(self, vsk: vsketch.Vsketch):
         return Point(vsk.random(0, self.width), vsk.random(0, self.height))
 
@@ -57,28 +57,21 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
                                 (self.width, self.height / 2)])
 
 
-    def draw(self, vsk: vsketch.Vsketch) -> None:
-        vsk.size(f"{self.height}x{self.width}", landscape=True, center=True)
-        self.width = self.width - 2 * self.margin
-        self.height = self.height - 2 * self.margin
-        vsk.translate(self.margin, self.margin)
-
+    def make_circles(self, vsk:vsketch.Vsketch):
 
         path = self.path(vsk)
         if self.debug:
             vsk.geometry(path)
-
-        circles = []
-        layer_offset = 2 if self.fixed_stroke else 1
-        layers = [layer_offset + i for i in range(self.num_layers)]
-
         num_circles = int(vsk.random(self.min_circles, self.max_circles))
-
+        
 
         radii = [vsk.random(self.min_radius, self.max_radius) for i in range(num_circles)]
         actual_max_radius = max(radii)
         y = vsk.random(radii[0], self.height-radii[0])
         x = radii[0]
+        theta = 0
+        outer_r = vsk.random(0.25,0.5)*min(self.width,self.height) 
+        circles = []
         for i, radius in enumerate(radii):
             # todo maybe force to be a whole number of millimeters
             interp = path.length*(i+1)/(num_circles+1) if self.evenly_spaced else vsk.random(radius,path.length-radius)
@@ -96,13 +89,30 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
                         x += vsk.random(0.1,1.2)*radius
                         y += vsk.random(-1,1)*radius
 
+                    
                     case _:
                         shape = path.interpolate(interp).buffer(radius)
 
 
             circles.append(shape)
+        return circles
 
+    def draw(self, vsk: vsketch.Vsketch) -> None:
+        vsk.size(f"{self.height}x{self.width}", landscape=True, center=True)
+        self.width = self.width - 2 * self.margin
+        self.height = self.height - 2 * self.margin
+        vsk.translate(self.margin, self.margin)
+
+
+
+        layer_offset = 2 if self.fixed_stroke else 1
+        layers = [layer_offset + i for i in range(self.num_layers)]
+
+
+        circles = self.make_circles(vsk)
+        
         geom = GeometryCollection([])
+        print(len(circles))
         for circle in circles:
             geom = geom.symmetric_difference(circle)
 
@@ -111,7 +121,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
 
             vsk.penWidth(vsk.random(self.min_pen_width, self.max_pen_width), layer)
 
-        if self.simple < self.num_layers < 2:
+        if self.simple or self.num_layers < 2:
             for shape in geom.geoms:
                 layer = layers[int(vsk.random(0, 1) * len(layers))]
                 vsk.stroke(layer)
