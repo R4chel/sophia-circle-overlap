@@ -37,7 +37,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     min_radius = vsketch.Param(2, decimals=0, unit="mm")
     max_radius = vsketch.Param(20, decimals=0, unit="mm")
     evenly_spaced = vsketch.Param(False)
-    kind = vsketch.Param("line", choices=["line", "region", "bug-circle", "circle"])
+    kind = vsketch.Param("line", choices=["line", "region", "bug-circle", "circle", "walker"])
     def random_point(self, vsk: vsketch.Vsketch):
         return Point(vsk.random(0, self.width), vsk.random(0, self.height))
 
@@ -50,6 +50,8 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
                   return Point(self.width/2,self.height/2).buffer(min(self.width,self.height)/2-self.margin-self.max_radius).boundary
              case "circle":
                   return Point(self.width/2, self.height/2).buffer(vsk.random(0.25,0.5)*min(self.width,self.height)).boundary
+
+
              case _:
                 return LineString([(0, self.height / 2),
                                 (self.width, self.height / 2)])
@@ -72,19 +74,31 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
 
         num_circles = int(vsk.random(self.min_circles, self.max_circles))
 
+
         radii = [vsk.random(self.min_radius, self.max_radius) for i in range(num_circles)]
         actual_max_radius = max(radii)
+        y = vsk.random(radii[0], self.height-radii[0])
+        x = radii[0]
         for i, radius in enumerate(radii):
             # todo maybe force to be a whole number of millimeters
             interp = path.length*(i+1)/(num_circles+1) if self.evenly_spaced else vsk.random(radius,path.length-radius)
         
             match self.kind:
+            
                     case "region":
                         shape = self.random_circle(vsk, radius)
+
                     case "line":
+
                         shape = path.interpolate(interp).buffer(radius)
+                    case "walker":
+                        shape = Point(x,y).buffer(radius)
+                        x += vsk.random(0.1,1.2)*radius
+                        y += vsk.random(-1,1)*radius
+
                     case _:
                         shape = path.interpolate(interp).buffer(radius)
+
 
             circles.append(shape)
 
