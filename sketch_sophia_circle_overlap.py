@@ -27,18 +27,20 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     simple = vsketch.Param(False)
     fixed_stroke = vsketch.Param(True)
     max_attempts = vsketch.Param(20)
+
     width = vsketch.Param(6., decimals=2, unit="in")
     height = vsketch.Param(4., decimals=2, unit="in")
     margin = vsketch.Param(0.1, decimals=3, unit="in")
     min_pen_width = vsketch.Param(0.7, decimals=3, min_value=1e-10, unit="mm")
     max_pen_width = vsketch.Param(0.7, decimals=3, min_value=1e-10, unit="mm")
     num_layers = vsketch.Param(1)
+    noise_detail = vsketch.Param(0.007)
     min_circles = vsketch.Param(5, decimals=0, min_value=2)
     max_circles = vsketch.Param(10, decimals=0, min_value=1)
     min_radius = vsketch.Param(2, decimals=0, unit="mm")
     max_radius = vsketch.Param(20, decimals=0, unit="mm")
     evenly_spaced = vsketch.Param(False)
-    kind = vsketch.Param("line", choices=["line", "region", "bug-circle", "circle", "walker","circle-walker", "trying"])
+    kind = vsketch.Param("line", choices=["line", "region", "region-noise", "bug-circle", "circle", "walker","circle-walker", "trying", "noise-walker"])
     def random_point(self, vsk: vsketch.Vsketch):
         return Point(vsk.random(0, self.width), vsk.random(0, self.height))
 
@@ -82,6 +84,11 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
                     case "region":
                         shape = self.random_circle(vsk, radius)
 
+                    case "region-noise":
+                        x = vsk.random(self.max_radius,self.width-self.max_radius)
+                        y = vsk.random(self.max_radius,self.height-self.max_radius)
+                        r = vsk.noise(x*self.noise_detail,y*self.noise_detail)*(self.max_radius-self.min_radius) + self.min_radius
+                        shape= Point(x,y).buffer(r)
                     case "line":
 
                         shape = path.interpolate(interp).buffer(radius)
@@ -120,9 +127,9 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
                     y += vsk.random(-1,1)*radius
                     circles.append(shape)
 
-            case "trying":
+            case "noise-walker":
                 while True:
-                    radius = (1+0.5*(np.sin(x)))*(self.max_radius-self.min_radius) + self.min_radius
+                    radius = ((vsk.noise(x*self.noise_detail,y*self.noise_detail)))*(self.max_radius-self.min_radius) + self.min_radius
                     if radius + x > self.width:
                         print(len(circles))
                         return circles
