@@ -2,6 +2,7 @@ import vsketch
 from shapely.geometry import Point, LineString, GeometryCollection, MultiPolygon, Polygon
 import shapely as shapely
 import shapely.ops as ops 
+import numpy as np
 
 class Region:
     def __init__(self, geom:Polygon, primary):
@@ -37,7 +38,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
     min_radius = vsketch.Param(2, decimals=0, unit="mm")
     max_radius = vsketch.Param(20, decimals=0, unit="mm")
     evenly_spaced = vsketch.Param(False)
-    kind = vsketch.Param("line", choices=["line", "region", "bug-circle", "circle", "walker","circle-walker"])
+    kind = vsketch.Param("line", choices=["line", "region", "bug-circle", "circle", "walker","circle-walker", "trying"])
     def random_point(self, vsk: vsketch.Vsketch):
         return Point(vsk.random(0, self.width), vsk.random(0, self.height))
 
@@ -57,7 +58,7 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
                                 (self.width, self.height / 2)])
 
 
-    def make_circles(self, vsk:vsketch.Vsketch):
+    def make_circles_orig(self, vsk:vsketch.Vsketch):
 
         path = self.path(vsk)
         if self.debug:
@@ -96,6 +97,43 @@ class SophiaCircleOverlapSketch(vsketch.SketchClass):
 
             circles.append(shape)
         return circles
+
+    def make_circles(self, vsk: vsketch.Vsketch):
+    
+        a = 1
+        b = 2 
+
+        y = vsk.random(-.5,.5)*self.height
+        x = 0
+        
+        circles = []
+        match self.kind:
+            case "walker":
+
+                while True:
+                    radius = vsk.random(self.min_radius,self.max_radius)
+                    if radius + x > self.width:
+                        print(len(circles))
+                        return circles
+                    shape = Point(x,y).buffer(radius)
+                    x += vsk.random(0.1,1.2)*radius
+                    y += vsk.random(-1,1)*radius
+                    circles.append(shape)
+
+            case "trying":
+                while True:
+                    radius = (1+0.5*(np.sin(x)))*(self.max_radius-self.min_radius) + self.min_radius
+                    if radius + x > self.width:
+                        print(len(circles))
+                        return circles
+                    shape = Point(x,y).buffer(radius)
+                    x += vsk.random(0.1,1.2)*radius
+                    y += vsk.random(-1,1)*radius
+                    circles.append(shape)
+
+
+            case _:
+                return self.make_circles_orig(vsk)
 
     def draw(self, vsk: vsketch.Vsketch) -> None:
         vsk.size(f"{self.height}x{self.width}", landscape=True, center=True)
